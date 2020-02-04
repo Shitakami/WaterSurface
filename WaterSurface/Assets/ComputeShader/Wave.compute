@@ -1,0 +1,70 @@
+﻿
+#pragma kernel Initialize
+#pragma kernel AddWave
+#pragma kernel Update
+#pragma kernel Draw
+
+RWTexture2D<float2> waveTexture;
+RWTexture2D<float4> drawTexture;
+
+float waveCoef;
+float deltaSize;
+float deltaTime;
+float time;
+
+[numthreads(8, 8, 1)]
+void Initialize(uint3 dispatchThreadID : SV_DispatchThreadID) {
+    waveTexture[dispatchThreadID.xy] = float2(0, 0);
+}
+
+[numthreads(8, 8, 1)]
+void AddWave(uint3 dispatchThreadID : SV_DispatchThreadID){
+
+    float width, height;
+    waveTexture.GetDimensions(width, height);
+
+    float x = (dispatchThreadID.x / width) * 2.0 - 1.0;
+    float y = (dispatchThreadID.y / height) * 2.0 - 1.0;
+
+    float cx = 0.7 * cos(time * 0.5);
+    float cy = 0.7 * sin(time * 0.5);
+
+    float dx = cx - x;
+    float dy = cy - y;
+
+    float r = sqrt(dx * dx + dy * dy);
+
+    float h = 5.0 * pow(max(0.05 - r, 0.0), 0.5);
+    waveTexture[dispatchThreadID.xy] += float2(h, 0);
+
+}
+
+[numthreads(8, 8, 1)]
+void Update(uint3 dispatchThreadID : SV_DispatchThreadID) {
+
+    float width, height;
+    waveTexture.GetDimensions(width, height);
+
+    float2 wave = waveTexture[dispatchThreadID.xy];
+    float a = (deltaTime * deltaTime * waveCoef * waveCoef) / (deltaSize * deltaSize);
+    float h = 2.0 * wave.x - wave.y + a * (
+        (dispatchThreadID.x != 0 ? waveTexture[dispatchThreadID.xy + uint2(-1, 0)].x : waveTexture[dispatchThreadID.xy].x) +
+        (dispatchThreadID.x < width - 1 ? waveTexture[dispatchThreadID.xy + uint2(1, 0)].x : waveTexture[dispatchThreadID.xy].x) +
+        (dispatchThreadID.y != 0 ? waveTexture[dispatchThreadID.xy + uint2(0, -1)].x : waveTexture[dispatchThreadID.xy].x) +
+        (dispatchThreadID.y < height - 1 ? waveTexture[dispatchThreadID.xy + uint2(0, 1)].x : waveTexture[dispatchThreadID.xy].x) +
+        - 4.0 * wave.x) - 0.1 * deltaTime * (wave.x - wave.y);
+        
+    waveTexture[dispatchThreadID.xy] = float2(h, wave.x);
+}
+
+[numthreads(8, 8, 1)]
+void Draw(uint3 dispatchThreadID : SV_DispatchThreadID) {
+
+    drawTexture[dispatchThreadID.xy] = lerp(
+        float4(0, 0, 0, 1),
+        float4(0, 1, 1, 1),
+        clamp(waveTexture[dispatchThreadID.xy].x, 0, 1)
+    );
+    
+}
+
