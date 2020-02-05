@@ -2,7 +2,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-public class Wave : MonoBehaviour
+public class WaveManager : MonoBehaviour
 {
 
     struct ThreadSize {
@@ -74,6 +74,9 @@ public class Wave : MonoBehaviour
                                 Mathf.CeilToInt(m_waveTexture.height / m_threadSizeInitialize.y), 
                                 1);
         
+        var mat = GetComponent<Renderer>().sharedMaterial;
+        mat.SetTexture("_WaveTex", m_waveTexture);
+
     }
 
     private void FixedUpdate() {
@@ -103,7 +106,7 @@ public class Wave : MonoBehaviour
                                 Mathf.CeilToInt(m_waveTexture.width / m_threadSizeDraw.x),
                                 Mathf.CeilToInt(m_waveTexture.height / m_threadSizeDraw.y),
                                 1);
-        m_plane.GetComponent<Renderer>().material.mainTexture = m_drawTexture;
+        m_plane.GetComponent<Renderer>().material.mainTexture = m_waveTexture;
 
     }
 

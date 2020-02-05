@@ -4,7 +4,11 @@
     {
         _MainTex ("Texture", 2D) = "white" {}
         _TessFactor("Tess Factor", Vector) = (2, 2, 2, 2)
-        _LODFactor("LODFactor", Range(0, 10)) = 1
+        _LODFactor("LODFactor", Range(0.001, 10)) = 1
+        
+        _WaveTex("Wave Texture", 2D) = "white" {}
+        _WaveScale("Wave Scale", float) = 1
+        
     }
     SubShader
     {
@@ -51,7 +55,7 @@
             struct h2d_const {
                 float tess_factor[3] : SV_TessFactor;
                 float InsideTessFactor : SV_InsideTessFactor;
-            }
+            };
 
             struct d2f { 
                 float4 vertex : SV_Position;
@@ -64,14 +68,18 @@
             float4 _MainTex_ST;
             uniform float _LODFactor;
             uniform float4 _TessFactor;
-            v2f vert (appdata v)
+            sampler2D _WaveTex;
+
+            float _WaveScale;
+
+            v2h vert (appdata v)
             {
-                v2f o;
+                v2h o;
                 o.vertex = float4(v.vertex.xyz, 1.0f);
                 o.uv = v.uv;
                 o.normal = v.normal;
 
-                o.worldPos = mul(unity_ObjectToWorld, v.vert);
+                o.worldPos = mul(unity_ObjectToWorld, v.vertex);
                 return o;
             }
 
@@ -82,6 +90,8 @@
                 o.tess_factor[1] = _TessFactor.y * _LODFactor;
                 o.tess_factor[2] = _TessFactor.z * _LODFactor;
                 o.InsideTessFactor = _TessFactor.w * _LODFactor;
+
+                return o;
             }
 
             [domain("tri")]
@@ -102,9 +112,28 @@
             }
             
             [domain("tri")]
-            d2f DS(h2d_const h2)
+            d2f DS(h2d_const h2_const_data, const OutputPatch<h2d_main, OUTPUT_PATCH_SIZE> i, float3 bary : SV_DomainLocation) {
 
-            fixed4 frag (v2f i) : SV_Target
+                d2f o = (d2f)0;
+                float3 vertex = i[0].vertex * bary.x + i[1].vertex * bary.y + i[2].vertex * bary.z;
+                float2 uv = i[0].uv * bary.x + i[1].uv * bary.y + i[2].uv * bary.z;
+                float3 normal = i[0].normal * bary.x + i[1].normal * bary.y + i[2].normal * bary.z;
+                float3 worldPos = i[0].worldPos * bary.x + i[1].normal * bary.y + i[2].normal * bary.z;
+                
+                float4 wave = tex2Dlod(_WaveTex, float4(uv.xy, 0, 0));
+                vertex.y += wave.r * _WaveScale;
+
+
+                o.vertex = UnityObjectToClipPos(float4(vertex, 1));
+                o.uv = uv;
+                o.normal = UnityObjectToWorldNormal(normal);
+                o.worldPos = worldPos;
+
+                return o;
+
+            }
+
+            fixed4 frag (d2f i) : SV_Target
             {
                 // sample the texture
                 fixed4 col = tex2D(_MainTex, i.uv);
