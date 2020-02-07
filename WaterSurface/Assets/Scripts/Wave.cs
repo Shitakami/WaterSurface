@@ -45,7 +45,6 @@ public class Wave : MonoBehaviour
         m_kernelUpdate = m_computeShader.FindKernel("Update");
         m_kernelDraw = m_computeShader.FindKernel("Draw");
 
-        Debug.Log(m_kernelAddWave);
 
         // 波の高さを格納するテクスチャの作成
         m_waveTexture = new RenderTexture(256, 256, 0, RenderTextureFormat.RG32);

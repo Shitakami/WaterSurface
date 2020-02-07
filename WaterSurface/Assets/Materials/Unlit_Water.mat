@@ -29,6 +29,6 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Floats:
     - _LODFactor: 6.5
-    - _WaveScale: 0.11
+    - _WaveScale: 0
     m_Colors:
     - _TessFactor: {r: 1, g: 1, b: 1, a: 1}

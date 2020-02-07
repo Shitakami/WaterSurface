@@ -1,41 +1,42 @@
 ﻿
 #pragma kernel Initialize
-#pragma kernel AddWave
+#pragma kernel AddPointWave
 #pragma kernel Update
-#pragma kernel Draw
 
 RWTexture2D<float2> waveTexture;
-RWTexture2D<float4> drawTexture;
 
 float waveCoef;
 float deltaSize;
 float deltaTime;
-float time;
+float decayWave;
+
+float positionX;
+float positionY;
+float planeScaleX;
+float planeScaleZ;
+float addRange;
 
 [numthreads(8, 8, 1)]
 void Initialize(uint3 dispatchThreadID : SV_DispatchThreadID) {
     waveTexture[dispatchThreadID.xy] = float2(0, 0);
 }
 
+
 [numthreads(8, 8, 1)]
-void AddWave(uint3 dispatchThreadID : SV_DispatchThreadID){
+void AddPointWave(uint3 dispatchThreadID : SV_DispatchThreadID) {
 
-    float width, height;
-    waveTexture.GetDimensions(width, height);
+	float width, height;
+	waveTexture.GetDimensions(width, height);
 
-    float x = (dispatchThreadID.x / width) * 2.0 - 1.0;
-    float y = (dispatchThreadID.y / height) * 2.0 - 1.0;
+	float dx = (positionX - dispatchThreadID.x / width) * planeScaleX;
+	float dy = (positionY - dispatchThreadID.y / height) * planeScaleZ;
 
-    float cx = 0.7 * cos(time * 0.5);
-    float cy = 0.7 * sin(time * 0.5);
+	float dist = sqrt(dx*dx + dy*dy);
+	
+	float addWave = max((addRange - dist), 0) / addRange;
+	addWave = pow(addWave, 0.5);
 
-    float dx = cx - x;
-    float dy = cy - y;
-
-    float r = sqrt(dx * dx + dy * dy);
-
-    float h = 5.0 * pow(max(0.05 - r, 0.0), 0.5);
-    waveTexture[dispatchThreadID.xy] += float2(h, 0);
+	waveTexture[dispatchThreadID.xy] += float2(addWave, 0);
 
 }
 
@@ -53,18 +54,9 @@ void Update(uint3 dispatchThreadID : SV_DispatchThreadID) {
         (dispatchThreadID.y != 0 ? waveTexture[dispatchThreadID.xy + uint2(0, -1)].x : waveTexture[dispatchThreadID.xy].x) +
         (dispatchThreadID.y < height - 1 ? waveTexture[dispatchThreadID.xy + uint2(0, 1)].x : waveTexture[dispatchThreadID.xy].x) +
         - 4.0 * wave.x) - 0.1 * deltaTime * (wave.x - wave.y);
-        
-    waveTexture[dispatchThreadID.xy] = float2(h, wave.x);
-}
-
-[numthreads(8, 8, 1)]
-void Draw(uint3 dispatchThreadID : SV_DispatchThreadID) {
-
-    drawTexture[dispatchThreadID.xy] = lerp(
-        float4(0, 0, 0, 1),
-        float4(0, 1, 1, 1),
-        clamp(waveTexture[dispatchThreadID.xy].x, 0, 1)
-    );
     
-}
+    float damp = - decayWave * deltaTime * (wave.x - wave.y);
+    h = h + damp;
+    waveTexture[dispatchThreadID.xy] = float2(h, wave.x);
 
+}
