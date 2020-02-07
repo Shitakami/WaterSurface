@@ -56,7 +56,9 @@ void Update(uint3 dispatchThreadID : SV_DispatchThreadID) {
         - 4.0 * wave.x) - 0.1 * deltaTime * (wave.x - wave.y);
     
     float damp = - decayWave * deltaTime * (wave.x - wave.y);
-    h = h + damp;
+    h += damp;
+    h *= 0.999;
+    
     waveTexture[dispatchThreadID.xy] = float2(h, wave.x);
 
 }

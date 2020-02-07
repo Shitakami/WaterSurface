@@ -9,6 +9,7 @@
         _WaveTex("Wave Texture", 2D) = "white" {}
         _WaveScale("Wave Scale", float) = 1
         
+        _NormalScale("Normal Scale", float) = 1
     }
     SubShader
     {
@@ -69,8 +70,9 @@
             uniform float _LODFactor;
             uniform float4 _TessFactor;
             sampler2D _WaveTex;
-
+            float4 _WaveTex_TexelSize;
             float _WaveScale;
+            float _NormalScale;
 
             v2h vert (appdata v)
             {
@@ -123,6 +125,18 @@
                 float4 wave = tex2Dlod(_WaveTex, float4(uv.xy, 0, 0));
                 vertex.y += wave.r * _WaveScale;
 
+                float2 waveShiftX = {_WaveTex_TexelSize.x, 0};
+                float2 waveShiftY = {0, _WaveTex_TexelSize.y};
+
+                float waveTexX = tex2Dlod(_WaveTex, float4(uv.xy + waveShiftX, 0, 0)).r * _WaveScale;
+                float waveTexx = tex2Dlod(_WaveTex, float4(uv.xy - waveShiftX, 0, 0)).r * _WaveScale;
+                float waveTexY = tex2Dlod(_WaveTex, float4(uv.xy + waveShiftY, 0, 0)).r * _WaveScale;
+                float waveTexy = tex2Dlod(_WaveTex, float4(uv.xy - waveShiftY, 0, 0)).r * _WaveScale;
+
+                float3 du = {1, _NormalScale * (waveTexx - waveTexX), 0};
+                float3 dv = {0, _NormalScale * (waveTexy - waveTexY), 1};
+
+                normal = normalize(cross(dv, du));
 
                 o.vertex = UnityObjectToClipPos(float4(vertex, 1));
                 o.uv = uv;
@@ -136,7 +150,8 @@
             fixed4 frag (d2f i) : SV_Target
             {
                 // sample the texture
-                fixed4 col = tex2D(_MainTex, i.uv);
+               // fixed4 col = tex2D(_MainTex, i.uv);
+                fixed4 col = fixed4(i.normal, 1);
                 // apply fog
                 UNITY_APPLY_FOG(i.fogCoord, col);
                 return col;

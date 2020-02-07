@@ -4,7 +4,7 @@ using UnityEngine;
 
 public class Wave : MonoBehaviour
 {
-
+    
     struct ThreadSize {
         public int x;
         public int y;
