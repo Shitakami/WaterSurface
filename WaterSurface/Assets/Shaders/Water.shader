@@ -10,11 +10,19 @@
         _WaveScale("Wave Scale", float) = 1
         
         _NormalScale("Normal Scale", float) = 1
+
+
+        _RelativeRefractionIndex("Relative Refraction Index", Range(0.0, 1.0)) = 0.67
+        [PowerSlider(5)]_Distance("Distance", Range(0.0, 100.0)) = 10.0
     }
     SubShader
     {
-        Tags { "RenderType"="Opaque" }
+        Tags { "RenderType"="Transparent" "RenderType" = "Transparent" }
         LOD 100
+
+
+
+        GrabPass { "_GrabPassTexture" }
 
         Pass
         {
@@ -40,7 +48,6 @@
             struct v2h
             {
                 float2 uv : TEXCOORD0;
-                UNITY_FOG_COORDS(1)
                 float4 vertex : POS;
                 float3 normal : NORMAL;
                 float4 worldPos : TEXCOORD1;
@@ -63,7 +70,9 @@
                 float2 uv : TEXCOORD0;
                 float3 normal : NORMAL;
                 float3 worldPos : TEXCOORD1;
+                half2 samplingViewportPos : TEXCOORD2;
             };
+
 
             sampler2D _MainTex;
             float4 _MainTex_ST;
@@ -73,6 +82,31 @@
             float4 _WaveTex_TexelSize;
             float _WaveScale;
             float _NormalScale;
+
+            // 屈折用変数（GrabPass）
+            sampler2D _GrabPassTexture;
+            float _RelativeRefractionIndex;
+            float _Distance;
+
+
+            half2 CalcSamplingViewportPos(float3 worldPos, float3 worldNormal) {
+
+                half3 viewDir = normalize(worldPos - _WorldSpaceCameraPos.xyz);
+                // 屈折方向を求める
+                half3 refracDir = refract(viewDir, worldNormal, _RelativeRefractionIndex);
+                // 屈折方向の先にある位置をサンプリング位置とする
+                half3 samplingPos = worldPos + refracDir * _Distance;
+                // サンプリング位置をプロジェクション変換
+                half4 samplingScreenPos = mul(UNITY_MATRIX_VP, half4(samplingPos, 1.0));
+                // ビューポート座標系に変換
+                half2 samplingViewportPos = (samplingScreenPos.xy / samplingScreenPos.w) * 0.5 + 0.5;
+                #if UNITY_UV_STARTS_AT_TOP
+                   samplingViewportPos.y = 1.0 - samplingViewportPos.y;
+                #endif
+
+                return samplingViewportPos;
+
+            }
 
             v2h vert (appdata v)
             {
@@ -120,7 +154,7 @@
                 float3 vertex = i[0].vertex * bary.x + i[1].vertex * bary.y + i[2].vertex * bary.z;
                 float2 uv = i[0].uv * bary.x + i[1].uv * bary.y + i[2].uv * bary.z;
                 float3 normal = i[0].normal * bary.x + i[1].normal * bary.y + i[2].normal * bary.z;
-                float3 worldPos = i[0].worldPos * bary.x + i[1].normal * bary.y + i[2].normal * bary.z;
+                float3 worldPos = i[0].worldPos * bary.x + i[1].worldPos * bary.y + i[2].worldPos * bary.z;
                 
                 float4 wave = tex2Dlod(_WaveTex, float4(uv.xy, 0, 0));
                 vertex.y += wave.r * _WaveScale;
@@ -143,6 +177,8 @@
                 o.normal = UnityObjectToWorldNormal(normal);
                 o.worldPos = worldPos;
 
+                o.samplingViewportPos = CalcSamplingViewportPos(worldPos, o.normal);
+
                 return o;
 
             }
@@ -150,12 +186,20 @@
             fixed4 frag (d2f i) : SV_Target
             {
                 // sample the texture
+
+                // 波のテクスチャを描画
                // fixed4 col = tex2D(_MainTex, i.uv);
-                fixed4 col = fixed4(i.normal, 1);
-                // apply fog
-                UNITY_APPLY_FOG(i.fogCoord, col);
+
+               // 法線を描画
+             //   fixed4 col = fixed4(i.normal, 1);
+
+                fixed4 col = tex2D(_GrabPassTexture, i.samplingViewportPos);
+
                 return col;
             }
+
+
+
             ENDCG
         }
     }
